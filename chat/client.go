@@ -109,12 +109,12 @@ func (c *Client) err(err error) {
 
 func (c *Client) msg(msg string, args ...interface{}) {
 	c.appendMessages(msg, args)
-	c.conn.Write([]byte("> " + msg + "\n"))
+	c.conn.Write([]byte(msg + "\n"))
 }
 
 func (c *Client) self(msg string, args ...interface{}) {
 	c.appendMessages(msg, args)
-	c.conn.Write([]byte("< " + msg + "\n"))
+	c.conn.Write([]byte(msg + "\n"))
 }
 
 func (c *Client) appendMessages(msg string, args []interface{}) {
