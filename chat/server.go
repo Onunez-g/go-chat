@@ -228,7 +228,7 @@ func (s *Server) chat(c *Client, args []string) {
 	} else {
 		for k, v := range s.clients {
 			if c.nick != k {
-				v.msg(fmt.Sprintf("/MESSAGE all_%s %s", c.nick, msg))
+				v.msg(fmt.Sprintf("/MESSAGE %s %s", c.nick, msg))
 				c.self("Ok")
 			}
 		}
