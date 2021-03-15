@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/onunez-g/go-chat/chat"
+	"github.com/onunez-g/go-chat/utils"
 )
 
 func main() {
@@ -35,10 +36,10 @@ func main() {
 func findPort() string {
 	args := strings.Join(os.Args[1:], " ")
 	if strings.Contains(args, "-p") {
-		index := strings.Index(args, "-p")
+		index := utils.FindIndex(os.Args[1:], "-p")
 		return ":" + os.Args[index+1]
 	} else if strings.Contains(args, "--port") {
-		index := strings.Index(args, "--port")
+		index := utils.FindIndex(os.Args[1:], "--port")
 		return ":" + os.Args[index+1]
 	}
 	return ":5000"

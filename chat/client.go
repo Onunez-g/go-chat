@@ -53,10 +53,11 @@ func (c *Client) ReadInput() {
 			c.commands <- Command{
 				id:     CMD_ROOM,
 				client: c,
+				args:   args,
 			}
 		case "/ROOMLIST":
 			c.commands <- Command{
-				id:     CMD_ROOMS,
+				id:     CMD_ROOMLIST,
 				client: c,
 			}
 		case "/CHAT":

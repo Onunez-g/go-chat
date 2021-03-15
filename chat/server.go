@@ -8,6 +8,9 @@ import (
 	"net"
 	"strconv"
 	"strings"
+
+	"github.com/iancoleman/strcase"
+	"github.com/onunez-g/go-chat/utils"
 )
 
 type Server struct {
@@ -37,7 +40,7 @@ func (s *Server) Run() {
 			s.reject(cmd.client, cmd.args)
 		case CMD_ROOM:
 			s.room(cmd.client, cmd.args)
-		case CMD_ROOMS:
+		case CMD_ROOMLIST:
 			s.roomlist(cmd.client)
 		case CMD_CHAT:
 			s.chat(cmd.client, cmd.args)
@@ -63,7 +66,7 @@ func (s *Server) NewClient(conn net.Conn) {
 		conn:        conn,
 		nick:        "anonymous" + strconv.Itoa(rand.Intn(1000)),
 		commands:    s.commands,
-		invitations: make([]string, 2),
+		invitations: make([]string, 0),
 	}
 	s.clients[c.nick] = c
 	c.ReadInput()
@@ -72,14 +75,19 @@ func (s *Server) NewClient(conn net.Conn) {
 func (s *Server) nick(c *Client, args []string) {
 	nickname := args[1]
 	_, ok := s.clients[nickname]
-	if !ok {
+	_, ok2 := s.rooms[nickname]
+	if strcase.ToCamel(nickname) != nickname {
+		c.msg("NotValid")
+		return
+	}
+	if !ok && !ok2 {
 		delete(s.clients, c.nick)
 		s.clients[nickname] = c
 		c.nick = nickname
 		c.msg(fmt.Sprintln("Ok"))
 		return
 	}
-	c.err(errors.New("Taken"))
+	c.msg("Taken")
 }
 
 func (s *Server) join(c *Client, args []string) {
@@ -167,10 +175,12 @@ func (s *Server) room(c *Client, args []string) {
 	_, ok2 := s.clients[roomName]
 	if !ok && !ok2 {
 		r := &Room{
-			name:     roomName,
-			owner:    c.nick,
-			members:  make(map[net.Addr]*Client),
-			requests: make([]string, 2),
+			name:  roomName,
+			owner: c.nick,
+			members: map[net.Addr]*Client{
+				c.conn.RemoteAddr(): c,
+			},
+			requests: make([]string, 0),
 		}
 		s.rooms[roomName] = r
 		c.msg("Ok")
@@ -181,7 +191,7 @@ func (s *Server) room(c *Client, args []string) {
 
 func (s *Server) chat(c *Client, args []string) {
 	var name string
-	flagMessage := strings.Index(strings.Join(args, " "), "-m")
+	flagMessage := utils.FindIndex(args, "-m")
 	if flagMessage == -1 {
 		c.err(errors.New("Bad Syntax"))
 	}
@@ -191,13 +201,14 @@ func (s *Server) chat(c *Client, args []string) {
 		name = args[2]
 		chatType = 1
 	} else if args[1] == "-g" {
+		name = args[2]
 		chatType = 2
 	}
 
 	if chatType == 1 {
 		client, ok := s.clients[name]
 		if !ok {
-			c.err(errors.New("NotFound"))
+			c.msg("NotFound")
 			return
 		}
 		client.msg(fmt.Sprintf("/MESSAGE %s %s", c.nick, msg), true)
@@ -205,7 +216,11 @@ func (s *Server) chat(c *Client, args []string) {
 	} else if chatType == 2 {
 		room, ok := s.rooms[name]
 		if !ok {
-			c.err(errors.New("NotFound"))
+			c.msg("NotFound")
+			return
+		}
+		if _, ok := room.members[c.conn.RemoteAddr()]; !ok {
+			c.msg("NotInRoom")
 			return
 		}
 		room.broadcast(c, fmt.Sprintf("/MESSAGE %s_%s %s", name, c.nick, msg))
@@ -213,7 +228,7 @@ func (s *Server) chat(c *Client, args []string) {
 	} else {
 		for k, v := range s.clients {
 			if c.nick != k {
-				v.msg("/MESSAGE all_%s %s", c.nick, msg)
+				v.msg(fmt.Sprintf("/MESSAGE all_%s %s", c.nick, msg))
 				c.self("Ok")
 			}
 		}
@@ -250,7 +265,10 @@ func (s *Server) add(c *Client, args []string) {
 		if isForced {
 			r.members[client.conn.RemoteAddr()] = client
 		} else {
-			if invites := strings.Join(client.invitations, " "); !strings.Contains(invites, roomName) {
+			if index := utils.FindIndex(r.requests, client.nick); index != -1 {
+				r.members[client.conn.RemoteAddr()] = client
+				r.requests = append(r.requests[:index], r.requests[index+1:]...)
+			} else if index := utils.FindIndex(client.invitations, roomName); index == -1 {
 				client.invitations = append(client.invitations, roomName)
 			}
 		}
@@ -284,7 +302,7 @@ func (s *Server) quit(c *Client) {
 	}
 	s.quitServer(c)
 
-	c.msg("Goodbye!")
+	c.msg("Ok")
 
 	c.conn.Close()
 }
