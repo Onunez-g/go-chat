@@ -264,12 +264,15 @@ func (s *Server) add(c *Client, args []string) {
 		}
 		if isForced {
 			r.members[client.conn.RemoteAddr()] = client
+			client.msg(fmt.Sprintf("/ADDED %s", roomName))
 		} else {
 			if index := utils.FindIndex(r.requests, client.nick); index != -1 {
 				r.members[client.conn.RemoteAddr()] = client
 				r.requests = append(r.requests[:index], r.requests[index+1:]...)
+				client.msg(fmt.Sprintf("/ADDED %s", roomName))
 			} else if index := utils.FindIndex(client.invitations, roomName); index == -1 {
 				client.invitations = append(client.invitations, roomName)
+				client.msg(fmt.Sprintf("/INVITED %s", roomName))
 			}
 		}
 	}
